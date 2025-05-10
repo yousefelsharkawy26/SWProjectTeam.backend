@@ -25,8 +25,7 @@ namespace Repository
                         select new UserResponse() 
                         {
                             Id = user.Id,
-                            FirstName = user.FirstName,
-                            LastName = user.LastName,
+                            Name = user.FirstName + " " + user.LastName,
                             Email = user.Email,
                             ImageUrl = user.ImageUrl,
                             Permission = user.Permission,
@@ -43,8 +42,7 @@ namespace Repository
                         select new UserResponse()
                         {
                             Id = user.Id,
-                            FirstName = user.FirstName,
-                            LastName = user.LastName,
+                            Name = user.FirstName + " " + user.LastName,
                             Email = user.Email,
                             ImageUrl = user.ImageUrl,
                             Permission = user.Permission,
@@ -61,8 +59,7 @@ namespace Repository
                         select new UserResponse()
                         {
                             Id = user.Id,
-                            FirstName = user.FirstName,
-                            LastName = user.LastName,
+                            Name = user.FirstName + " " + user.LastName,
                             Email = user.Email,
                             Phone = user.PhoneNumber,
                             ImageUrl = user.ImageUrl != null ? user.ImageUrl : "avatar.png",

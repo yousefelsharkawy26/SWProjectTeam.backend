@@ -15,6 +15,15 @@
         IPostRepository Post { get; }
         ILikeRepository Like { get; }
         ICommentRepository Comment { get; }
+        IInventoryRepository Inventory { get; }
+        IStockRepository Stock { get; }
+        ITreatmentRepository Treatment { get; }
+        ISessionRepository Session { get; }
+        IMedicalExaminationRepository Examination { get; }
+        IMedicalScanRepository MedicalScan { get; }
+        ILabTestRepository LabTest { get; }
+        IPrescriptionRepository Prescription { get; }
+        IDiagnosisRepository Diagnosis { get; }
         Task<bool> SaveAsync();
         bool SaveSync();
     }

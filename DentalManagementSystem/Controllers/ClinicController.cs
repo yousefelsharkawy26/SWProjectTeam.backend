@@ -1,10 +1,12 @@
 ﻿using Models;
+using Utilities;
 using Models.Requests;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using DentalManagementSystem.Services.Interfaces;
-using Utilities;
+using System.Threading.Tasks;
+using System.Numerics;
 
 
 namespace DentalManagementSystem.Controllers
@@ -156,13 +158,7 @@ namespace DentalManagementSystem.Controllers
                 var admin = await _userManager.Users
                     .FirstOrDefaultAsync(u => u.Id == userId);
 
-                var newMember = await _userManager.Users
-                    .FirstOrDefaultAsync(u => u.Email == member.MemberEmail);
-
-                if (newMember == null)
-                    return BadRequest("Email is wrong.");
-
-                var result = await _clinicServices.AddMember(userId, newMember, member.MemberRole);
+                var result = await _clinicServices.AddMember(userId, member);
 
                 await _notificationServices.SendNotification(AddMemberNotification(result, admin), userId);
 
@@ -227,7 +223,7 @@ namespace DentalManagementSystem.Controllers
         }
 
         [HttpPut("update-member")]
-        public async Task<IActionResult> UpdateMemberRole(UpdateMemberRequest data)
+        public async Task<IActionResult> UpdateMember(MemberRequest data)
         {
             var claims = _authServices.GetClaims(Request);
             var permission = claims.First(x => x.Type == "role").Value;
@@ -238,7 +234,7 @@ namespace DentalManagementSystem.Controllers
 
             try
             {
-                await _clinicServices.UpdateClinicMemberRole(data.MemberId, data.MemberRole, adminId);
+                await _clinicServices.UpdateClinicMember(data, adminId);
 
                 return Ok();
             }
@@ -290,7 +286,139 @@ namespace DentalManagementSystem.Controllers
                 return BadRequest(ex.Message);
             }
         }
+        
+        [HttpPost("add-plan")]
+        public async Task<IActionResult> AddPlan(TreatmentPlanRequest plan)
+        {
+            var claims = _authServices.GetClaims(Request);
+            var permission = claims.First(x => x.Type == "role").Value;
+            if (permission.ToLower() == Utility.User_Role)
+                return Unauthorized();
 
+            var adminId = claims.First(x => x.Type == "userId").Value;
+
+            try
+            {
+                await _clinicServices.AddTreatmentPlan(plan);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+        
+        [HttpPut("add-session")]
+        public async Task<IActionResult> AddSession(int treatmentId, PlanSessionRequest session)
+        {
+            var claims = _authServices.GetClaims(Request);
+            var permission = claims.First(x => x.Type == "role").Value;
+            if (permission.ToLower() == Utility.User_Role)
+                return Unauthorized();
+
+            var adminId = claims.First(x => x.Type == "userId").Value;
+
+            try
+            {
+                await _clinicServices.AddPlanSession(treatmentId, session);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("update-session")]
+        public async Task<IActionResult> UpdateSession(int sessionId, PlanSessionRequest session)
+        {
+            var claims = _authServices.GetClaims(Request);
+            var permission = claims.First(x => x.Type == "role").Value;
+            if (permission.ToLower() == Utility.User_Role)
+                return Unauthorized();
+
+            var adminId = claims.First(x => x.Type == "userId").Value;
+
+            try
+            {
+                await _clinicServices.UpdateSession(sessionId, session);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+        
+        [HttpPut("complete-session")]
+        public async Task<IActionResult> CompleteSession(int sessionId)
+        {
+            var claims = _authServices.GetClaims(Request);
+            var permission = claims.First(x => x.Type == "role").Value;
+            if (permission.ToLower() == Utility.User_Role)
+                return Unauthorized();
+
+            var adminId = claims.First(x => x.Type == "userId").Value;
+
+            try
+            {
+                await _clinicServices.CompleteSession(sessionId);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpDelete("delete-session")]
+        public async Task<IActionResult> DeleteSession(int sessionId)
+        {
+            var claims = _authServices.GetClaims(Request);
+            var permission = claims.First(x => x.Type == "role").Value;
+            if (permission.ToLower() == Utility.User_Role)
+                return Unauthorized();
+
+            var adminId = claims.First(x => x.Type == "userId").Value;
+
+            try
+            {
+                await _clinicServices.DeleteSession(sessionId);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("get-plans")]
+        public async Task<IActionResult> GetPlans()
+        {
+            var claims = _authServices.GetClaims(Request);
+            var permission = claims.First(x => x.Type == "role").Value;
+            if (permission.ToLower() == Utility.User_Role)
+                return Unauthorized();
+
+            var adminId = claims.First(x => x.Type == "userId").Value;
+            var clinic = await _clinicServices.GetClinicByUserId(adminId);
+
+            try
+            {
+                var plans = _clinicServices.GetTreatmentPlanAsync(clinic.Id);
+
+                return Ok(plans);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
 
         NotificationRequest AddMemberNotification(User member, User admin)
         {

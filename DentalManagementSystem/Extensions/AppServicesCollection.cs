@@ -16,6 +16,7 @@ public static class AppServicesCollection
         services.AddScoped<IUserServices, UserServices>();
         services.AddScoped<IPostServices, PostServices>();
         services.AddScoped<INotificationServices, NotificationServices>();
+        services.AddScoped<IInventoryServices, InventoryServices>();
 
         return services;
     }

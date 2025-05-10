@@ -12,4 +12,6 @@ public interface IUserServices
     Task<string> GenerateRandomUserName();
     IEnumerable<UserResponse> FindUsersByEmailOrUserName(string search);
     User PatientRequestToUser(PatientRequest patient);
+    Task<PatientProfileResponse> GetPatientDetails(int patientId);
+    Task AddMedicalExamination(MedicalExaminationRequest examination);
 }

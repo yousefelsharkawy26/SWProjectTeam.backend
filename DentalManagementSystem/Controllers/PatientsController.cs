@@ -2,6 +2,7 @@
 using Models.Responses;
 using Microsoft.AspNetCore.Mvc;
 using DentalManagementSystem.Services.Interfaces;
+using System.Threading.Tasks;
 
 namespace DentalManagementSystem.Controllers
 {
@@ -60,6 +61,48 @@ namespace DentalManagementSystem.Controllers
             return BadRequest("failed");
         }
 
+        [HttpGet("patient-Details")]
+        public async Task<IActionResult> GetProfile(int id)
+        {
+            var claims = _authServices.GetClaims(Request);
+            var permission = claims.First(x => x.Type == "role").Value.ToLower();
 
+            if (permission == "user")
+                return Unauthorized();
+            var userId = claims.First(x => x.Type == "userId").Value;
+
+            try
+            {
+                var result = await _userServices.GetPatientDetails(id);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("add-medical-examination")]
+        public async Task<IActionResult> AddMedicalExamination(MedicalExaminationRequest examination)
+        {
+            var claims = _authServices.GetClaims(Request);
+            var permission = claims.First(x => x.Type == "role").Value.ToLower();
+
+            if (permission == "user")
+                return Unauthorized();
+            var userId = claims.First(x => x.Type == "userId").Value;
+
+            try
+            {
+                await _userServices.AddMedicalExamination(examination);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
     }
 }

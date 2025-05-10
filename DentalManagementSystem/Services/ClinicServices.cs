@@ -1,11 +1,12 @@
 ﻿using Models;
 using Models.Requests;
 using Models.Responses;
+using Utilities;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using DataAccess.Repository.IRepository;
 using DentalManagementSystem.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
-using Utilities;
+using Microsoft.AspNetCore.Http;
 
 namespace DentalManagementSystem.Services;
 public class ClinicServices : IClinicServices
@@ -22,32 +23,55 @@ public class ClinicServices : IClinicServices
         _userServices = userServices;
     }
 
-    public async Task<User> AddMember(string adminId, User member, string role)
+    public async Task<User> AddMember(string adminId, MemberRequest request)
     {
         var admin = await _unitOfWork.Employee.Get(u => u.UserId == adminId);
+
+        var member = await _userManager.Users
+                    .FirstOrDefaultAsync(u => u.Email == request.Email);
+
+        if (member == null)
+            throw new ArgumentNullException("Email is wrong.");
 
         var newMember = await _unitOfWork.Employee.Get(u => u.UserId == member.Id && u.ClinicId == admin.ClinicId);
         
         if (newMember != null)
             throw new ArgumentException("User is already exists in clinic");
 
-
-        var newEmp = new Employee()
-        {
-            ClinicId = admin.ClinicId,
-            UserId = member.Id,
-        };
-
-
         await _userManager.RemoveFromRoleAsync(member, member.Permission);
-        await _userManager.AddToRoleAsync(member, role);
+        await _userManager.AddToRoleAsync(member, request.Role);
 
-        member.Permission = role;
-        newEmp.UserId = member.Id;
+        if (request.Role == Utility.Dentist_Role)
+            await _unitOfWork.Doctor.Add(new()
+            {
+                Employee = new Employee()
+                {
+                    ClinicId = admin.ClinicId,
+                    UserId = member.Id,
+                    Status = "active",
+                    CreatedAt = DateTime.Now,
+                    Specialization = request.Specialization,
+                    Name = request.FirstName + ' ' + request.LastName,
+                    Phone = request.Phone,
+                },
+                Name = member.FirstName + " " + member.LastName,
+            });
+        else
+            await _unitOfWork.Employee.Add(new()
+            {
+                ClinicId = admin.ClinicId,
+                UserId = member.Id,
+                Status = "active",
+                CreatedAt = DateTime.Now,
+                Specialization = request.Specialization,
+                Name = request.FirstName + ' ' + request.LastName,
+                Phone = request.Phone,
+            });
+
+        member.Permission = request.Role;
 
         try
         {
-            await _unitOfWork.Employee.Add(newEmp);
             await _userManager.UpdateAsync(member);
             await _unitOfWork.SaveAsync();
             return member;
@@ -210,6 +234,24 @@ public class ClinicServices : IClinicServices
             return patient;
         throw new ArgumentNullException("Patinet Not Found");
     }
+    public async Task<IEnumerable<DoctorResponse>> GetClinicDoctors(string userId)
+    {
+        var emp = await _unitOfWork.Employee.Get(u => u.UserId == userId);
+
+        var doctors = _unitOfWork.Doctor
+            .GetAll(u => u.Employee.ClinicId == emp.ClinicId, includeProp: "Employee")
+            .ToList()
+            .Select(i => new DoctorResponse()
+            {
+                Id = i.Id,
+                Name = i.Name,
+                Role = i.Specialization,
+            });
+
+        if (doctors == null) throw new ArgumentNullException("There is no doctors in clinic");
+
+        return doctors;
+    }
     public async Task<IEnumerable<AppointmentResponse>> GetAppointments(string userId)
     {
         var emp = await _unitOfWork.Employee.Get(u => u.UserId == userId);
@@ -236,7 +278,7 @@ public class ClinicServices : IClinicServices
 
         return clinic;
     }
-    public async Task<IEnumerable<UserResponse>> GetClinicMembers(string userId)
+    public async Task<IEnumerable<EmployeesResponse>> GetClinicMembers(string userId)
     {
         var emp = await _unitOfWork.Employee.Get(u => u.UserId == userId);
 
@@ -245,16 +287,17 @@ public class ClinicServices : IClinicServices
 
         var employees = _unitOfWork.Employee
             .GetAll(u => u.ClinicId == emp.ClinicId, includeProp: "User")
-            .Select(member => new UserResponse()
+            .Select(member => new EmployeesResponse()
             {
                 Id = member.UserId,
-                FirstName = member.User.FirstName,
-                LastName = member.User.LastName,
+                Name = member.Name,
                 Email = member.User.Email,
-                Bio = member.User.Bio,
-                ImageUrl = member.User.ImageUrl,
-                Permission = member.User.Permission,
-                Phone = member.User.PhoneNumber,
+                Image = member.User.ImageUrl,
+                Role = member.User.Permission,
+                Phone = member.Phone,
+                CreateAt = new DateOnly(member.CreatedAt.Year, member.CreatedAt.Month, member.CreatedAt.Day),
+                Specialization = member.Specialization,
+                status = member.Status
             });
 
         if (employees != null)
@@ -321,23 +364,26 @@ public class ClinicServices : IClinicServices
         }
         
     }
-    public async Task UpdateClinicMemberRole(string memberId, string role, string adminId)
+    public async Task UpdateClinicMember(MemberRequest data, string adminId)
     {
-        var emp = await _unitOfWork.Employee.Get(u => u.UserId == adminId);
+        var admin = await _unitOfWork.Employee.Get(u => u.UserId == adminId);
 
-        var memberClinic = await _unitOfWork.Employee
-            .Get(u => u.UserId == memberId && u.ClinicId == emp.ClinicId, "User", traced: true);
+        var employee = await _unitOfWork.Employee
+            .Get(u => u.UserId == data.Id && u.ClinicId == admin.ClinicId, "User", traced: true);
 
-        if (memberClinic == null)
+        if (employee == null)
             throw new UnauthorizedAccessException();
 
-        var member = memberClinic.User;
+        var member = employee.User;
+        employee.Specialization = data.Specialization;
+        employee.Name = data.FirstName + ' ' + data.LastName;
+        employee.Phone = data.Phone;
 
         try
         {
             await _userManager.RemoveFromRoleAsync(member, member.Permission);
-            await _userManager.AddToRoleAsync(member, role);
-            member.Permission = role;
+            await _userManager.AddToRoleAsync(member, data.Role);
+            member.Permission = data.Role;
             await _userManager.UpdateAsync(member);
         }
         catch (Exception ex)
@@ -363,7 +409,7 @@ public class ClinicServices : IClinicServices
             throw new DbUpdateException(ex.Message, ex);
         }
     }
-
+    
 
     private bool ValidAddress(PatientRequest patient)
     {
@@ -402,6 +448,100 @@ public class ClinicServices : IClinicServices
             });
         }
         return lst;
+    }
+
+    public async Task AddTreatmentPlan(TreatmentPlanRequest plan)
+    {
+        await _unitOfWork.Session.Add(new()
+        {
+            Completed = false,
+            Date = new DateOnly(plan.StartDate.Year, plan.StartDate.Month, plan.StartDate.Day),
+            Notes = plan.Notes,
+            TreatmentPlan = new()
+            {
+                Description = plan.Notes,
+                Cost = plan.Cost,
+                PatientId = plan.PatientId,
+                DoctorId = plan.DentistId,
+                Type = plan.TreatmentType,
+            }
+        });
+
+        await _unitOfWork.SaveAsync();
+    }
+    public async Task AddPlanSession(int TreatmentId, PlanSessionRequest session)
+    {
+        await _unitOfWork.Session.Add(new()
+        {
+            Completed = false,
+            Date = new DateOnly(session.Date.Year, session.Date.Month, session.Date.Day),
+            Notes = session.Notes,
+            TreatmentId = TreatmentId,
+        });
+
+        await _unitOfWork.SaveAsync();
+    }
+    public async Task UpdateSession(int sessionId, PlanSessionRequest session)
+    {
+        var dbSession = await _unitOfWork.Session.Get(u => u.Id == sessionId);
+        dbSession.Notes = session.Notes;
+        dbSession.Date = new DateOnly(session.Date.Year, session.Date.Month, session.Date.Day);
+
+        _unitOfWork.Session.Update(dbSession);
+
+        await _unitOfWork.SaveAsync();
+    }
+    public async Task CompleteSession(int sessionId)
+    {
+        var session = await _unitOfWork.Session.Get(u => u.Id == sessionId);
+        session.Completed = true;
+
+        _unitOfWork.Session.Update(session);
+
+        await _unitOfWork.SaveAsync();
+    }
+    public async Task DeleteSession(int sessionId)
+    {
+        var session = await _unitOfWork.Session.Get(u => u.Id == sessionId);
+
+        _unitOfWork.Session.Delete(session);
+
+        await _unitOfWork.SaveAsync();
+    }
+    public IEnumerable<TreatmentPlanResponse> GetTreatmentPlanAsync(int clinicId)
+    {
+        var plans = _unitOfWork.Treatment
+            .GetAll(u => u.Patient.ClinicId == clinicId, includeProp: "Patient,Doctor")
+            .ToList()
+            .Select(u => {
+                var patient = _unitOfWork.Patient.Get(p => p.Id == u.PatientId, includeProp: "User").Result;
+                var sessions = _unitOfWork.Session
+                    .GetAll(s => s.TreatmentId == u.Id)
+                    .Select(s => new PlanSessionResponse()
+                    {
+                        Id = s.Id,
+                        Completed = s.Completed,
+                        Date = s.Date,
+                        Notes = s.Notes,
+                    });
+
+                return new TreatmentPlanResponse()
+                {
+                    Id = u.Id,
+                    Cost = u.Cost,
+                    DentistName = u.Doctor.Name,
+                    Notes = u.Description,
+                    PatientId = u.PatientId,
+                    PatientName = patient.User.FirstName + ' ' + patient.User.LastName,
+                    TreatmentType = u.Type,
+                    Sessions = sessions,
+                    StartDate = sessions.Select(p => p.Date).Min(),
+                    EndDate = sessions.Select(p => p.Date).Max(),
+                    Status = !sessions.Select(s => s.Completed).FirstOrDefault(u => u == false) ? "in-progress" : "completed",
+                };
+            });
+
+        return plans;
     }
 
     

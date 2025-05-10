@@ -1,8 +1,8 @@
 ﻿using Models;
 using Utilities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 
 namespace DataAccess.Context;
@@ -34,6 +34,10 @@ public partial class AppDbContext : IdentityDbContext
     public virtual DbSet<MedicalHistory> MedicalHistories { get; set; }
     public virtual DbSet<Clinic> Clinics { get; set; }
     public virtual DbSet<User> Users {  get; set; }
+    public virtual DbSet<Inventory> Inventories { get; set; }
+    public virtual DbSet<Stock> Stocks { get; set; }
+    public virtual DbSet<TreatmentPlan> Treatments { get; set; }
+    public virtual DbSet<PlanSession> Sessions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -41,8 +45,10 @@ public partial class AppDbContext : IdentityDbContext
         {
             new IdentityRole() { Id = "1", Name = Utility.Admin_Role, NormalizedName = Utility.Admin_Role.ToUpper()},
             new IdentityRole() { Id = "2", Name = Utility.Dentist_Role, NormalizedName = Utility.Dentist_Role.ToUpper()},
-            new IdentityRole() { Id = "3", Name = Utility.Staff_Role, NormalizedName = Utility.Staff_Role.ToUpper()},
-            new IdentityRole() { Id = "4", Name = Utility.User_Role, NormalizedName = Utility.User_Role.ToUpper()},
+            new IdentityRole() { Id = "3", Name = Utility.Assistant_Role, NormalizedName = Utility.Assistant_Role.ToUpper()},
+            new IdentityRole() { Id = "4", Name = Utility.Receptionist_Role, NormalizedName = Utility.Receptionist_Role.ToUpper()},
+            new IdentityRole() { Id = "5", Name = Utility.Hygienist_Role, NormalizedName = Utility.Hygienist_Role.ToUpper()},
+            new IdentityRole() { Id = "6", Name = Utility.User_Role, NormalizedName = Utility.User_Role.ToUpper()},
         });
         builder.Entity<Clinic>().HasData(new[]
         {

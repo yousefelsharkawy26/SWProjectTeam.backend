@@ -16,10 +16,10 @@ public class PatientResponse
     public string ZipCode { get; set; }
     public string MedicalHistory { get; set; }
     public string Allergies { get; set; }
-    public DateTime CreatedAt { get; set; }
     public string Status { get; set; }
     public DateTime? LastVisit { get; set; }
     public DateOnly? NextAppointment { get; set; }
     public TimeOnly? StartTime { get; set; }
     public TimeOnly? EndTime { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

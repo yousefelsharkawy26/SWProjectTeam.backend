@@ -13,14 +13,16 @@ public class UserServices : IUserServices
     private readonly UserManager<User> _userManager;
     private readonly IEmailServices _emailServices;
     private readonly IUnitOfWork _unitOfWork;
-
+    private readonly IFileServices _fileServices;
     public UserServices(UserManager<User> userManager,
                         IUnitOfWork unitOfWork,
-                        IEmailServices emailServices)
+                        IEmailServices emailServices,
+                        IFileServices fileServices)
     {
         _userManager = userManager;
         _unitOfWork = unitOfWork;
         _emailServices = emailServices;
+        _fileServices = fileServices;
     }
 
     public async Task<User> CreateUser(User user)
@@ -58,8 +60,7 @@ public class UserServices : IUserServices
 
         var userDetails = new UserResponse()
         {
-            FirstName = user.FirstName,
-            LastName = user.LastName,
+            Name = user.FirstName + ' ' + user.LastName,
             Email = user.Email,
             Phone = user.PhoneNumber,
             ImageUrl = user.ImageUrl != null ? user.ImageUrl : "avatar.png",
@@ -74,8 +75,9 @@ public class UserServices : IUserServices
     {
         var user = _userManager.Users.FirstOrDefault(u => u.Id == userId);
 
-        user.FirstName = userDetails.FirstName;
-        user.LastName = userDetails.LastName;
+        var name = userDetails.Name.Split(' ');
+        user.FirstName = name[0];
+        user.LastName = name[1];
         user.Email = userDetails.Email;
         user.PhoneNumber = userDetails.Phone;
         user.Bio = userDetails.Bio;
@@ -127,5 +129,172 @@ public class UserServices : IUserServices
             Gender = patient.Gender,
             PhoneNumber = patient.Phone,
         };
+    }
+
+    public async Task<PatientProfileResponse> GetPatientDetails(int patientId)
+    {
+        var patient = await _unitOfWork.Patient.Get(u => u.Id == patientId, includeProp: "User");
+        if (patient == null)
+            throw new ArgumentNullException(nameof(patient));
+
+        var appointments = _unitOfWork.Appointment
+            .GetAll(u => u.PatientId == patientId, includeProp: "Doctor")
+            .ToList()
+            .Select(a => new AppointmentPatientProfileResponse()
+            {
+                PatientId = patientId,
+                Completed = a.Status == "completed",
+                Date = a.AppointmentDate,
+                Doctor = a.Doctor.FirstName + " " + a.Doctor.LastName,
+                Notes = a.Notes,
+                Title = a.AppointmentType + " Result",
+                Type = a.AppointmentType,
+                Id = a.Id,
+            });
+
+        var medicalRecord = new List<MedicalRecordResponse>();
+        var examination = await _unitOfWork.Examination.Get(u => u.PatientId == patientId);
+        if (examination != null)
+        {
+            var medicalScans = _unitOfWork.MedicalScan
+                .GetAll(u => u.ExaminationId == examination.Id)
+                .ToList()
+                .Select(s => {
+                    var e = _unitOfWork.Examination.Get(e => e.Id == examination.Id, includeProp: "Doctor").Result;
+
+                    return new MedicalRecordResponse()
+                    {
+                        CreatedAt = s.CreateAt,
+                        Title = "Medical Scan",
+                        Description = s.Notes,
+                        PatientId = patientId,
+                        Type = new { FileUrl = s.FileUrl, Status = s.Status, ScanType = s.ScanType },
+                        Id = s.Id,
+                        Doctor = e.Doctor.Name,
+                    };
+                });
+
+            var labTests = _unitOfWork.LabTest
+                .GetAll(u => u.ExaminationId == examination.Id)
+                .ToList()
+                .Select(s => {
+                    var e = _unitOfWork.Examination.Get(e => e.Id == examination.Id, includeProp: "Doctor").Result;
+
+                    return new MedicalRecordResponse()
+                    {
+                        CreatedAt = s.CreateAt,
+                        Title = "Lab Test",
+                        Description = s.Notes,
+                        PatientId = patientId,
+                        Type = new { FileUrl = s.FileUrl, Status = s.Status, TestName = s.TestName },
+                        Id = s.Id,
+                        Doctor = e.Doctor.Name,
+                    };
+                });
+            
+            var prescriptions = _unitOfWork.Prescription
+                .GetAll(u => u.ExaminationId == examination.Id)
+                .ToList()
+                .Select(s => {
+                    var e = _unitOfWork.Examination.Get(e => e.Id == examination.Id, includeProp: "Doctor").Result;
+
+                    return new MedicalRecordResponse()
+                    {
+                        CreatedAt = s.CreateAt,
+                        Title = "Prescription",
+                        Description = s.Instructions,
+                        PatientId = patientId,
+                        Type = new { Instructions = s.Instructions, Duration = s.Duration },
+                        Id = s.Id,
+                        Doctor = e.Doctor.Name,
+                    };
+                });
+
+            var diagnoses = _unitOfWork.Diagnosis
+                .GetAll(u => u.ExaminationId == examination.Id)
+                .ToList()
+                .Select(s => {
+                    var e = _unitOfWork.Examination.Get(e => e.Id == examination.Id, includeProp: "Doctor").Result;
+
+                    return new MedicalRecordResponse()
+                    {
+                        CreatedAt = s.CreatedAt,
+                        Title = "Medical Scan",
+                        Description = s.Description,
+                        PatientId = patientId,
+                        Type = null,
+                        Id = s.Id,
+                        Doctor = e.Doctor.Name,
+                    };
+                });
+
+            if (medicalScans.Any())
+                medicalRecord.AddRange(medicalScans);
+            if (labTests.Any())
+                medicalRecord.AddRange(labTests);
+            if (prescriptions.Any())
+                medicalRecord.AddRange(prescriptions);
+            if (diagnoses.Any())
+                medicalRecord.AddRange(diagnoses);
+        }
+
+        var response = new PatientProfileResponse()
+        {
+            age = (short)(DateTime.Now.Year - patient.User.DateOfBirth.Year),
+            Avatar = patient.User.ImageUrl,
+            CreatedAt = new(patient.CreatedAt.Year, patient.CreatedAt.Month, patient.CreatedAt.Day),
+            Email = patient.User.Email,
+            Gender = patient.User.Gender,
+            Id = patient.Id,
+            Name = patient.User.FirstName + " " + patient.User.LastName,
+            Appointments = appointments,
+            LastVisit = appointments.Select(a => a.Date).Max(),
+            MedicalRecords = medicalRecord
+        };
+
+        return response;
+    }
+
+    public async Task AddMedicalExamination(MedicalExaminationRequest examination)
+    {
+        var dbExamination = await _unitOfWork.Examination.Get(u => u.PatientId == examination.PatientId);
+
+        if (dbExamination == null)
+        {
+            dbExamination = new()
+            {
+                PatientId = examination.PatientId,
+                DoctorId = examination.Doctor
+            };
+
+            await _unitOfWork.Examination.Add(dbExamination);
+
+            await _unitOfWork.SaveAsync();
+        }
+
+        _ = examination.Type switch
+        {
+            "test" => _unitOfWork.LabTest.Add(new()
+            {
+                CreateAt = DateTime.Now,
+                ExaminationId = dbExamination.Id,
+                FileUrl = _fileServices.UploudFile(examination.File, null),
+                Notes = examination.Description,
+                Status = "Added",
+                TestName = examination.Title,
+            }),
+            "scan" => _unitOfWork.MedicalScan.Add(new()
+            {
+                CreateAt = DateTime.Now,
+                ExaminationId = dbExamination.Id,
+                FileUrl = _fileServices.UploudFile(examination.File, null),
+                Notes = examination.Description,
+                Status = "Added",
+                ScanType = examination.Title,
+            }),
+            _ => throw new ArgumentException("Type Error")
+        };
+
+        await _unitOfWork.SaveAsync();
     }
 }

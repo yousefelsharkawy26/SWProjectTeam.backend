@@ -91,7 +91,7 @@ public class AuthServices: IAuthServices
     public async Task<bool> RegisterService(RegisterRequest registerUser)
     {
         if (registerUser.Role == Utilities.Utility.Admin_Role 
-         || registerUser.Role == Utilities.Utility.Staff_Role)
+         || registerUser.Role == Utilities.Utility.Receptionist_Role)
             return false;
 
         if (!IsValidUser(registerUser))

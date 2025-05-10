@@ -1,9 +1,11 @@
 ﻿namespace Utilities;
 public class Utility
 {
-    public const string Admin_Role = "adminstrator";
+    public const string Admin_Role = "administrator";
     public const string Dentist_Role = "dentist";
-    public const string Staff_Role = "staff";
+    public const string Receptionist_Role = "receptionist";
+    public const string Assistant_Role = "assistant";
+    public const string Hygienist_Role = "hygienist";
     public const string User_Role = "user";
 
     //------------------------------------//

@@ -19,8 +19,6 @@ namespace DentalManagementSystem.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAllByClinicId()
         {
-            try
-            {
                 var claims = _authServices.GetClaims(Request);
                 var permissions = claims.First(x => x.Type == "role").Value.ToLower();
                 if (permissions == "user")
@@ -28,7 +26,9 @@ namespace DentalManagementSystem.Controllers
 
                 var userId = claims.First(x => x.Type == "userId").Value;
                 
-                var members = await _clinicServices.GetClinicMembers(userId);
+            try
+            {
+                var members = await _clinicServices.GetClinicDoctors(userId);
 
                 return Ok(members);
             }
