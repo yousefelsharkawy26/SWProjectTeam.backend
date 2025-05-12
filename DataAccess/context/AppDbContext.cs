@@ -10,7 +10,11 @@ namespace DataAccess.Context;
 public partial class AppDbContext : IdentityDbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) 
-        : base(options) { }
+        : base(options) 
+    {
+        //if (Database.EnsureCreated())
+            Database.Migrate();
+    }
 
     public virtual DbSet<Address> Addresses { get; set; }
     public virtual DbSet<Appointment> Appointments { get; set; }
