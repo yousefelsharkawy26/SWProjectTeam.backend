@@ -27,12 +27,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="wwwroot\images\index.html" />
+    <ProjectReference Include="..\DataAccess\DataAccess.csproj" />
+    <ProjectReference Include="..\Utilities\Utilities.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DataAccess\DataAccess.csproj" />
-    <ProjectReference Include="..\Utilities\Utilities.csproj" />
+    <Folder Include="wwwroot\images\" />
   </ItemGroup>
 
 </Project>

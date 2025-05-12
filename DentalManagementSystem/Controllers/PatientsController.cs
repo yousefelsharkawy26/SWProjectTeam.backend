@@ -61,7 +61,7 @@ namespace DentalManagementSystem.Controllers
             return BadRequest("failed");
         }
 
-        [HttpGet("patient-Details")]
+        [HttpGet("patient-medicalRecords")]
         public async Task<IActionResult> GetProfile(int id)
         {
             var claims = _authServices.GetClaims(Request);
@@ -69,11 +69,10 @@ namespace DentalManagementSystem.Controllers
 
             if (permission == "user")
                 return Unauthorized();
-            var userId = claims.First(x => x.Type == "userId").Value;
 
             try
             {
-                var result = await _userServices.GetPatientDetails(id);
+                var result = await _userServices.GetPatientMedicalRecords(id);
 
                 return Ok(result);
             }

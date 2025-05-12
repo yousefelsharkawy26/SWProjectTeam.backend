@@ -131,26 +131,13 @@ public class UserServices : IUserServices
         };
     }
 
-    public async Task<PatientProfileResponse> GetPatientDetails(int patientId)
+    public async Task<IEnumerable<MedicalRecordResponse>> GetPatientMedicalRecords(int patientId)
     {
         var patient = await _unitOfWork.Patient.Get(u => u.Id == patientId, includeProp: "User");
         if (patient == null)
             throw new ArgumentNullException(nameof(patient));
 
-        var appointments = _unitOfWork.Appointment
-            .GetAll(u => u.PatientId == patientId, includeProp: "Doctor")
-            .ToList()
-            .Select(a => new AppointmentPatientProfileResponse()
-            {
-                PatientId = patientId,
-                Completed = a.Status == "completed",
-                Date = a.AppointmentDate,
-                Doctor = a.Doctor.FirstName + " " + a.Doctor.LastName,
-                Notes = a.Notes,
-                Title = a.AppointmentType + " Result",
-                Type = a.AppointmentType,
-                Id = a.Id,
-            });
+        
 
         var medicalRecord = new List<MedicalRecordResponse>();
         var examination = await _unitOfWork.Examination.Get(u => u.PatientId == patientId);
@@ -238,21 +225,9 @@ public class UserServices : IUserServices
                 medicalRecord.AddRange(diagnoses);
         }
 
-        var response = new PatientProfileResponse()
-        {
-            age = (short)(DateTime.Now.Year - patient.User.DateOfBirth.Year),
-            Avatar = patient.User.ImageUrl,
-            CreatedAt = new(patient.CreatedAt.Year, patient.CreatedAt.Month, patient.CreatedAt.Day),
-            Email = patient.User.Email,
-            Gender = patient.User.Gender,
-            Id = patient.Id,
-            Name = patient.User.FirstName + " " + patient.User.LastName,
-            Appointments = appointments,
-            LastVisit = appointments.Select(a => a.Date).Max(),
-            MedicalRecords = medicalRecord
-        };
+        
 
-        return response;
+        return medicalRecord;
     }
 
     public async Task AddMedicalExamination(MedicalExaminationRequest examination)
