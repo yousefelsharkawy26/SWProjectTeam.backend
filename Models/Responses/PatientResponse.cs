@@ -15,7 +15,7 @@ public class PatientResponse
     public string State { get; set; }
     public string ZipCode { get; set; }
     public string MedicalHistory { get; set; }
-    public string Allergies { get; set; }
+    public string[] Allergies { get; set; }
     public string Status { get; set; }
     public DateTime? LastVisit { get; set; }
     public DateOnly? NextAppointment { get; set; }
