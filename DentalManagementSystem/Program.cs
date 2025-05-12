@@ -22,9 +22,9 @@ namespace DentalManagementSystem
 
             var app = builder.Build();
 
-            app.AddStaticFilesConfig(builder.Environment)
+            app.ConfigureCORS(builder.Configuration)
+                .AddStaticFilesConfig(builder.Environment)
                .ConfigureSwaggerExplorer()
-               .ConfigureCORS(builder.Configuration)
                .AddIdentityAuthMiddleWares();
 
             app.UseWebSockets();

@@ -39,7 +39,7 @@ namespace DentalManagementSystem.Controllers
                 var permissions = claims?.FirstOrDefault(c => c.Type == "role")?.Value;
                 var userId = claims?.FirstOrDefault(c => c.Type == "userId")?.Value;
 
-                if (permissions != Utility.Admin_Role)
+                if (permissions == Utility.User_Role)
                     return Unauthorized(new { message = "You don't have permission to access this resource." });
 
                 var clinic = await _clinicServices.GetClinicByUserId(userId);
@@ -129,7 +129,7 @@ namespace DentalManagementSystem.Controllers
                 var claims = _authServices.GetClaims(Request);
                 var permissions = claims?.FirstOrDefault(c => c.Type == "role")?.Value;
                 var userId = claims?.FirstOrDefault(c => c.Type == "userId")?.Value;
-                if (permissions.ToLower() != Utility.Admin_Role)
+                if (permissions.ToLower() == Utility.User_Role)
                     return Unauthorized(new { message = "You don't have permission to access this resource." });
 
                 var result = await _clinicServices.CreateClinic(userId, clinic);

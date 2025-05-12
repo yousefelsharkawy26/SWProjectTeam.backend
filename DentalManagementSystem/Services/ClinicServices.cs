@@ -195,16 +195,24 @@ public class ClinicServices : IClinicServices
         var endTime = appointment.EndTime.Split(':');
         newAppointment.StartTime = new TimeOnly(int.Parse(startTime[0]), int.Parse(startTime[1]));
         newAppointment.EndTime = new TimeOnly(int.Parse(endTime[0]), int.Parse(endTime[1]));
-        newAppointment.DoctorId = appointment.DentistId;
+        var doc = await _unitOfWork.Doctor.Get(u => u.Id == int.Parse(appointment.DentistId), includeProp: "Employee");
+        newAppointment.DoctorId = doc.Employee.UserId;
         newAppointment.Notes = appointment.Notes;
         newAppointment.ClinicId = emp.ClinicId;
         newAppointment.LastVisitDate = null;
 
         await _unitOfWork.Appointment.Add(newAppointment);
 
-        var result = await _unitOfWork.SaveAsync();
+        try
+        {
+            var result = await _unitOfWork.SaveAsync();
 
-        return result;
+            return result;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
     }
     public async Task<bool> CreateClinic(string adminId, Clinic newClinic)
     {
@@ -273,6 +281,9 @@ public class ClinicServices : IClinicServices
         var clinic = await _unitOfWork.Clinic
             .Get(c => c.OwnerId == userId);
 
+        if (clinic == null)
+            clinic = (await _unitOfWork.Employee.Get(u => u.UserId == userId, includeProp: "Clinic")).Clinic;
+        
         if (clinic == null)
             throw new ArgumentNullException("Clinic not exists");
 
@@ -517,6 +528,7 @@ public class ClinicServices : IClinicServices
                 var patient = _unitOfWork.Patient.Get(p => p.Id == u.PatientId, includeProp: "User").Result;
                 var sessions = _unitOfWork.Session
                     .GetAll(s => s.TreatmentId == u.Id)
+                    .ToList()
                     .Select(s => new PlanSessionResponse()
                     {
                         Id = s.Id,
